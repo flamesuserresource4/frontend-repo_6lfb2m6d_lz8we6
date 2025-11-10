@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
 import { ArrowUpRight, Play, Star, Sparkles, CheckCircle2, Linkedin, Twitter, Mail, Phone } from 'lucide-react'
-
-function useParallax(multiplier = 0.2) {
-  const { scrollY } = useScroll()
-  const y = useTransform(scrollY, [0, 1000], [0, 1000 * multiplier])
-  return y
-}
 
 function GlowButton({ children, href, variant = 'primary' }) {
   const base = 'inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all duration-300 will-change-transform'
@@ -46,6 +40,97 @@ function TestimonialCard({ quote, name, role }) {
   )
 }
 
+// Apple-like sticky parallax hero
+function ParallaxHero() {
+  const sectionRef = useRef(null)
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start start', 'end start'] })
+
+  // Depth-based motions
+  const bgY = useTransform(scrollYProgress, [0, 1], [0, -200]) // far background
+  const midY = useTransform(scrollYProgress, [0, 1], [0, -400]) // mid layer
+  const fgY = useTransform(scrollYProgress, [0, 1], [0, -650]) // foreground product
+
+  const titleY = useTransform(scrollYProgress, [0, 0.5, 1], [0, -40, -120])
+  const titleOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0])
+  const subOpacity = useTransform(scrollYProgress, [0, 0.4], [1, 0])
+
+  const fgScale = useTransform(scrollYProgress, [0, 1], [1, 1.2])
+
+  // Mouse tilt for foreground card
+  const [mouse, setMouse] = useState({ x: 0, y: 0 })
+  const onMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = (e.clientX - rect.left) / rect.width - 0.5
+    const y = (e.clientY - rect.top) / rect.height - 0.5
+    setMouse({ x, y })
+  }
+  const tiltX = useSpring(useTransform([()=>mouse.y], ([y]) => y * -8), { stiffness: 120, damping: 12 })
+  const tiltY = useSpring(useTransform([()=>mouse.x], ([x]) => x * 10), { stiffness: 120, damping: 12 })
+
+  return (
+    <section ref={sectionRef} className="relative h-[220vh]">
+      <div className="sticky top-0 h-screen overflow-hidden">
+        {/* Background aura grid */}
+        <motion.div style={{ y: bgY }} className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_50%_-20%,rgba(99,102,241,0.25),transparent_60%)]" />
+          <div className="absolute inset-0 opacity-[0.06]" style={{backgroundImage:'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)', backgroundSize:'40px 40px'}} />
+          <div className="absolute -left-40 top-1/3 w-[800px] h-[800px] rounded-full blur-3xl bg-gradient-to-tr from-fuchsia-600/30 via-indigo-700/30 to-sky-500/20" />
+          <div className="absolute -right-40 bottom-0 w-[700px] h-[700px] rounded-full blur-3xl bg-gradient-to-br from-indigo-700/30 via-violet-600/30 to-fuchsia-500/20" />
+        </motion.div>
+
+        {/* Mid layer particles */}
+        <motion.div style={{ y: midY }} className="absolute inset-0 -z-0">
+          <div className="absolute left-16 top-28 w-2 h-2 rounded-full bg-white/60 blur-[1px]" />
+          <div className="absolute right-24 top-1/2 w-1.5 h-1.5 rounded-full bg-fuchsia-300/70" />
+          <div className="absolute left-1/3 bottom-24 w-2 h-2 rounded-full bg-sky-300/70" />
+        </motion.div>
+
+        {/* Content */}
+        <div onMouseMove={onMouseMove} className="relative h-full flex items-center">
+          <div className="max-w-7xl mx-auto px-6 w-full grid lg:grid-cols-2 gap-10 items-center">
+            <div className="relative">
+              <motion.h1 style={{ y: titleY, opacity: titleOpacity }} className="text-5xl md:text-7xl font-black tracking-tight text-white">
+                Falcon — Future of Placements
+              </motion.h1>
+              <motion.p style={{ opacity: subOpacity }} className="mt-6 text-lg md:text-xl text-indigo-200 max-w-xl">
+                A cinematic, scroll‑driven experience. Precision control. Beautifully fast.
+              </motion.p>
+              <motion.div style={{ opacity: subOpacity }} className="mt-8 flex flex-wrap gap-3">
+                <GlowButton href="#contact">Book a Demo <ArrowUpRight size={16} /></GlowButton>
+                <GlowButton variant="secondary" href="#showcase">See How It Works <Play size={16} /></GlowButton>
+              </motion.div>
+              <motion.div style={{ opacity: subOpacity }} className="mt-10 grid grid-cols-3 gap-3 max-w-xl">
+                <Stat value="1000+" label="Students Placed" />
+                <Stat value="300+" label="Recruiters" />
+                <Stat value="50%" label="Faster Cycles" />
+              </motion.div>
+            </div>
+
+            {/* Foreground product card with tilt + scroll scale */}
+            <motion.div style={{ y: fgY, scale: fgScale, rotateX: tiltX, rotateY: tiltY, transformPerspective: 1000 }} className="relative">
+              <div className="aspect-[10/7] rounded-[28px] bg-white/5 ring-1 ring-white/10 backdrop-blur-lg overflow-hidden shadow-[0_40px_120px_-20px_rgba(88,28,135,0.45)]">
+                <div className="absolute inset-0" style={{backgroundImage:'linear-gradient(transparent, rgba(7,9,24,0.25)), url(https://images.unsplash.com/photo-1556157382-97eda2d62296?q=80&w=1600&auto=format&fit=crop)', backgroundSize:'cover', backgroundPosition:'center'}} />
+                {/* gloss */}
+                <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.14),transparent_35%)] mix-blend-overlay" />
+                <div className="absolute bottom-4 right-4 px-3 py-2 rounded-lg bg-black/40 text-xs text-indigo-200 ring-1 ring-white/10">Realtime Analytics</div>
+              </div>
+
+              {/* floating chips */}
+              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="absolute -bottom-5 -left-4 p-4 rounded-2xl bg-white/5 ring-1 ring-white/10 backdrop-blur">
+                <p className="text-xs text-indigo-300">AI Suggestions</p>
+                <p className="text-sm font-medium text-white">Resume • Shortlisting</p>
+              </motion.div>
+              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="absolute -top-4 -right-4 px-4 py-3 rounded-2xl bg-white/5 ring-1 ring-white/10 backdrop-blur text-sm text-indigo-200">
+                <Sparkles className="inline mr-2 text-amber-300" size={16}/> Live Metrics
+              </motion.div>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function App() {
   const [features, setFeatures] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -82,43 +167,6 @@ export default function App() {
     fetchFeatures()
   }, [backend])
 
-  const parallaxHero = useParallax(0.25)
-  const parallaxParticles = useParallax(0.15)
-
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setForm((f) => ({ ...f, [name]: value }))
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
-    setSubmitResult(null)
-    try {
-      const res = await fetch(`${backend}/api/contact`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, source: 'landing' }),
-      })
-      if (!res.ok) throw new Error('Submission failed')
-      const data = await res.json()
-      setSubmitResult({ ok: true, id: data.id })
-      setForm({ name: '', email: '', message: '' })
-    } catch (err) {
-      setSubmitResult({ ok: false, error: err.message })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // testimonials demo
-  const testimonials = useMemo(() => ([
-    { quote: 'Falcon gave us real-time visibility across all placements — our cycle is smoother than ever.', name: 'Ritika Sharma', role: 'Training & Placement Officer' },
-    { quote: 'The AI resume suggestions are shockingly good. It helped me land 3 interviews in a week.', name: 'Aman Gupta', role: 'Final-year Student' },
-    { quote: 'Shortlisting with analytics cut our screening time by 60%.', name: 'Kunal Mehra', role: 'Recruiter, TechCorp' },
-    { quote: 'Clean, fast, and powerful. Exactly what our university needed.', name: 'Priya Nair', role: 'Dean, ABC University' },
-  ]), [])
-
   // Scroll-to-top button visibility
   const [showTop, setShowTop] = useState(false)
   useEffect(() => {
@@ -130,13 +178,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#070918] text-indigo-100 selection:bg-indigo-600/40 selection:text-white">
-      {/* Animated background grid and glow */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_50%_-20%,rgba(99,102,241,0.25),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(124,58,237,0.12),rgba(0,0,0,0)_40%,rgba(14,165,233,0.12))] animate-pulse" />
-        <div className="absolute inset-0 opacity-[0.06]" style={{backgroundImage:'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)', backgroundSize:'40px 40px'}} />
-      </div>
-
       {/* Navbar */}
       <header className={`sticky top-0 z-40 transition-colors ${navSolid ? 'backdrop-blur bg-[#0b0f2a]/75 ring-1 ring-white/10' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -160,63 +201,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <motion.div style={{ y: parallaxHero }} className="absolute -top-40 right-0 w-[700px] h-[700px] bg-gradient-to-br from-indigo-700/40 via-fuchsia-600/30 to-sky-500/30 blur-3xl rounded-full" />
-        <motion.div style={{ y: parallaxParticles }} className="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-gradient-to-tr from-purple-700/40 via-indigo-700/30 to-fuchsia-500/30 blur-3xl rounded-full" />
-
-        <div className="max-w-7xl mx-auto px-6 pt-24 md:pt-32 pb-24">
-          <div className="grid md:grid-cols-2 gap-10 items-center">
-            <div>
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="text-4xl md:text-6xl font-black tracking-tight text-white"
-              >
-                Falcon — The AI-Powered Placement Enhancement Tool
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.6 }}
-                className="mt-5 text-lg md:text-xl text-indigo-200"
-              >
-                Transform your university placements with intelligent automation and data-driven insights.
-              </motion.p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <GlowButton href="#contact">Book a Demo <ArrowUpRight size={16} /></GlowButton>
-                <GlowButton variant="secondary" href="#showcase">See How It Works <Play size={16} /></GlowButton>
-              </div>
-
-              <div className="mt-10 grid grid-cols-3 gap-3 max-w-xl">
-                <Stat value="1000+" label="Students Placed" />
-                <Stat value="300+" label="Recruiters Onboarded" />
-                <Stat value="50%" label="Faster Cycles" />
-              </div>
-
-              <div className="mt-6 text-sm text-indigo-300">
-                {loading && <span>Loading highlights…</span>}
-                {error && <span className="text-rose-300">{error}</span>}
-                {features && <span>{features.tagline}</span>}
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="aspect-video rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur overflow-hidden">
-                <div className="absolute inset-0 animate-[pulse_6s_ease-in-out_infinite] bg-[radial-gradient(1000px_400px_at_20%_-10%,rgba(99,102,241,0.2),transparent_60%)]" />
-                <div className="absolute inset-0" style={{backgroundImage:'linear-gradient(transparent, rgba(7,9,24,0.2)), url(https://images.unsplash.com/photo-1556157382-97eda2d62296?q=80&w=1600&auto=format&fit=crop)', backgroundSize:'cover', backgroundPosition:'center'}} />
-                <div className="absolute bottom-4 right-4 px-3 py-2 rounded-lg bg-black/40 text-xs text-indigo-200 ring-1 ring-white/10">Futuristic Dashboard Mock</div>
-              </div>
-
-              <div className="absolute -bottom-5 -left-4 p-4 rounded-2xl bg-white/5 ring-1 ring-white/10 backdrop-blur">
-                <p className="text-xs text-indigo-300">Live AI Suggestions</p>
-                <p className="text-sm font-medium text-white">Resume & Shortlisting</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Apple-like Hero (sticky with multi-depth parallax) */}
+      <ParallaxHero />
 
       {/* About */}
       <section id="about" className="py-24 relative">
@@ -230,6 +216,11 @@ export default function App() {
                   <li key={t} className="flex items-center gap-3"><CheckCircle2 className="text-emerald-400" size={18} /> <span>{t}</span></li>
                 ))}
               </ul>
+              <div className="mt-6 text-sm text-indigo-300">
+                {loading && <span>Loading highlights…</span>}
+                {error && <span className="text-rose-300">{error}</span>}
+                {features && <span>{features.tagline}</span>}
+              </div>
             </motion.div>
             <motion.div className="grid sm:grid-cols-2 gap-6" initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.1 }}>
               {['Resume Builder','Job Portal','Placement Analytics','AI Shortlisting'].map((card, i) => (
@@ -336,7 +327,12 @@ export default function App() {
             <p className="mt-3 text-indigo-200">A few words from the people using Falcon.</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-10">
-            {testimonials.map((t, i) => (
+            {[
+              { quote: 'Falcon gave us real-time visibility across all placements — our cycle is smoother than ever.', name: 'Ritika Sharma', role: 'Training & Placement Officer' },
+              { quote: 'The AI resume suggestions are shockingly good. It helped me land 3 interviews in a week.', name: 'Aman Gupta', role: 'Final-year Student' },
+              { quote: 'Shortlisting with analytics cut our screening time by 60%.', name: 'Kunal Mehra', role: 'Recruiter, TechCorp' },
+              { quote: 'Clean, fast, and powerful. Exactly what our university needed.', name: 'Priya Nair', role: 'Dean, ABC University' },
+            ].map((t, i) => (
               <TestimonialCard key={i} {...t} />
             ))}
           </div>
@@ -366,27 +362,43 @@ export default function App() {
               <h2 className="text-3xl md:text-4xl font-extrabold text-white">Let’s talk</h2>
               <p className="text-indigo-200 mt-2">Send us a message and our team will get back to you.</p>
 
-              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                const form = e.currentTarget
+                const data = {
+                  name: form.name.value,
+                  email: form.email.value,
+                  message: form.message.value,
+                  source: 'landing'
+                }
+                try {
+                  const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/contact`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                  })
+                  if (!res.ok) throw new Error('Submission failed')
+                  form.reset()
+                  alert('Thanks! We received your message.')
+                } catch (err) {
+                  alert(err.message)
+                }
+              }} className="mt-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1 text-indigo-200">Name</label>
-                  <input name="name" value={form.name} onChange={handleChange} required className="w-full px-4 py-3 rounded-xl bg-white/5 ring-1 ring-white/10 text-white placeholder:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Your name" />
+                  <input name="name" required className="w-full px-4 py-3 rounded-xl bg-white/5 ring-1 ring-white/10 text-white placeholder:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Your name" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-indigo-200">Email Address</label>
-                  <input type="email" name="email" value={form.email} onChange={handleChange} required className="w-full px-4 py-3 rounded-xl bg-white/5 ring-1 ring-white/10 text-white placeholder:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="you@company.com" />
+                  <input type="email" name="email" required className="w-full px-4 py-3 rounded-xl bg-white/5 ring-1 ring-white/10 text-white placeholder:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="you@company.com" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-indigo-200">Message</label>
-                  <textarea name="message" value={form.message} onChange={handleChange} rows={4} required className="w-full px-4 py-3 rounded-xl bg-white/5 ring-1 ring-white/10 text-white placeholder:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="How can we help?" />
+                  <textarea name="message" rows={4} required className="w-full px-4 py-3 rounded-xl bg-white/5 ring-1 ring-white/10 text-white placeholder:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="How can we help?" />
                 </div>
-                <button disabled={submitting} className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white font-semibold hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] disabled:opacity-60">
-                  {submitting ? 'Submitting…' : 'Submit'}
+                <button className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white font-semibold hover:shadow-[0_0_30px_rgba(99,102,241,0.6)]">
+                  Submit
                 </button>
-                {submitResult && (
-                  <p className={`text-sm mt-2 ${submitResult.ok ? 'text-emerald-300' : 'text-rose-300'}`}>
-                    {submitResult.ok ? 'Thanks! We received your message.' : `Error: ${submitResult.error}`}
-                  </p>
-                )}
               </form>
             </div>
 
@@ -419,7 +431,7 @@ export default function App() {
           <div className="flex items-center gap-4 text-indigo-300">
             <a href="#" className="hover:text-white flex items-center gap-2"><Linkedin size={16}/> LinkedIn</a>
             <a href="#" className="hover:text-white flex items-center gap-2"><Twitter size={16}/> Twitter</a>
-            <span className="text-xs text-indigo-400">Backend: <span className="font-mono">{backend}</span></span>
+            <span className="text-xs text-indigo-400">Backend: <span className="font-mono">{import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}</span></span>
           </div>
         </div>
       </footer>
