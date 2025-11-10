@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
+import { motion, useScroll, useTransform, useSpring, useMotionValue } from 'framer-motion'
 import { ArrowUpRight, Play, Star, Sparkles, CheckCircle2, Linkedin, Twitter, Mail, Phone } from 'lucide-react'
 
 function GlowButton({ children, href, variant = 'primary' }) {
@@ -56,16 +56,20 @@ function ParallaxHero() {
 
   const fgScale = useTransform(scrollYProgress, [0, 1], [1, 1.2])
 
-  // Mouse tilt for foreground card
-  const [mouse, setMouse] = useState({ x: 0, y: 0 })
+  // Mouse tilt for foreground card - use MotionValues (required by useTransform)
+  const mvX = useMotionValue(0)
+  const mvY = useMotionValue(0)
   const onMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const x = (e.clientX - rect.left) / rect.width - 0.5
     const y = (e.clientY - rect.top) / rect.height - 0.5
-    setMouse({ x, y })
+    mvX.set(x)
+    mvY.set(y)
   }
-  const tiltX = useSpring(useTransform([()=>mouse.y], ([y]) => y * -8), { stiffness: 120, damping: 12 })
-  const tiltY = useSpring(useTransform([()=>mouse.x], ([x]) => x * 10), { stiffness: 120, damping: 12 })
+  const onMouseLeave = () => { mvX.set(0); mvY.set(0) }
+
+  const tiltX = useSpring(useTransform(mvY, (y) => y * -8), { stiffness: 120, damping: 12 })
+  const tiltY = useSpring(useTransform(mvX, (x) => x * 10), { stiffness: 120, damping: 12 })
 
   return (
     <section ref={sectionRef} className="relative h-[220vh]">
@@ -86,7 +90,7 @@ function ParallaxHero() {
         </motion.div>
 
         {/* Content */}
-        <div onMouseMove={onMouseMove} className="relative h-full flex items-center">
+        <div onMouseMove={onMouseMove} onMouseLeave={onMouseLeave} className="relative h-full flex items-center">
           <div className="max-w-7xl mx-auto px-6 w-full grid lg:grid-cols-2 gap-10 items-center">
             <div className="relative">
               <motion.h1 style={{ y: titleY, opacity: titleOpacity }} className="text-5xl md:text-7xl font-black tracking-tight text-white">
@@ -109,7 +113,7 @@ function ParallaxHero() {
             {/* Foreground product card with tilt + scroll scale */}
             <motion.div style={{ y: fgY, scale: fgScale, rotateX: tiltX, rotateY: tiltY, transformPerspective: 1000 }} className="relative">
               <div className="aspect-[10/7] rounded-[28px] bg-white/5 ring-1 ring-white/10 backdrop-blur-lg overflow-hidden shadow-[0_40px_120px_-20px_rgba(88,28,135,0.45)]">
-                <div className="absolute inset-0" style={{backgroundImage:'linear-gradient(transparent, rgba(7,9,24,0.25)), url(https://images.unsplash.com/photo-1556157382-97eda2d62296?q=80&w=1600&auto=format&fit=crop)', backgroundSize:'cover', backgroundPosition:'center'}} />
+                <div className="absolute inset-0" style={{backgroundImage:'linear-gradient(transparent, rgba(7,9,24,0.25)), url(https://images.unsplash.com/photo-1760764541302-e3955fbc6b2b?ixid=M3w3OTkxMTl8MHwxfHNlYXJjaHwxfHxjZXJhbWljJTIwcG90dGVyeSUyMGhhbmRtYWRlfGVufDB8MHx8fDE3NjI2OTY2NDJ8MA&ixlib=rb-4.1.0&w=1600&auto=format&fit=crop&q=80)', backgroundSize:'cover', backgroundPosition:'center'}} />
                 {/* gloss */}
                 <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.14),transparent_35%)] mix-blend-overlay" />
                 <div className="absolute bottom-4 right-4 px-3 py-2 rounded-lg bg-black/40 text-xs text-indigo-200 ring-1 ring-white/10">Realtime Analytics</div>
